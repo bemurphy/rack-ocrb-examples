@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>The Weather</title>
+    <!-- Bootstrap -->
+    <link href="http://twitter.github.com/bootstrap/assets/css/bootstrap.css" rel="stylesheet" media="screen">
+    <link href="/css/app.css" rel="stylesheet" />
+  </head>
+  <body>
+    <% if flash[:error] %>
+      <div class="alert alert-error"><%= h flash[:error] %></div>
+    <% end %>
+    <%= yield %>
+  </body>
+</html>
+
