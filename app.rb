@@ -3,6 +3,7 @@ require "json"
 require "cuba"
 require "cuba/render"
 require "rack/flash"
+require "geocoder"
 
 BadWeather = Class.new(RuntimeError)
 
@@ -83,6 +84,19 @@ end
 Cuba.use Rack::Session::Cookie
 Cuba.use Rack::Flash
 
+class FakeIp
+  def initialize(app, fake_ip)
+    @app = app
+    @fake_ip = fake_ip
+  end
+
+  def call(env)
+    env["REMOTE_ADDR"] = @fake_ip
+    @app.call(env)
+  end
+end
+Cuba.use FakeIp, ENV.fetch("FAKE_IP")
+
 Cuba.settings[:weather_api_key] = ENV.fetch("WEATHER_API_KEY")
 
 Cuba.plugin Rack::Utils
@@ -95,6 +109,10 @@ Cuba.define do
 
   def flash
     env['x-rack.flash']
+  end
+
+  def postal_code
+    req.location.postal_code
   end
 
   def zip_weather
