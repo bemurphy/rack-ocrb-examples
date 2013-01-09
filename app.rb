@@ -3,7 +3,10 @@ require "json"
 require "sinatra"
 require "rack/flash"
 
+BadWeather = Class.new(RuntimeError)
+
 class ZipWeather
+
   UNKNOWN = "Unknown"
 
   attr_reader :zipcode, :api_key
@@ -75,6 +78,13 @@ end
 enable :sessions
 use Rack::Flash
 set :weather_api_key, ENV.fetch("WEATHER_API_KEY")
+set :raise_errors, false
+set :show_exceptions, false
+
+error BadWeather do
+  flash[:error] = env['sinatra.error'].to_s
+  redirect to("/")
+end
 
 helpers do
   include Rack::Utils
@@ -83,17 +93,20 @@ helpers do
   def zip_weather
     @zip_weather ||= ZipWeather.new params[:zipcode], settings.weather_api_key
   end
+
+  def check_weather
+    if zip_weather.error?
+      raise BadWeather, zip_weather.error
+    end
+    zip_weather
+  end
 end
 
 get "/" do
   erb :index
 end
 
-get "/weather" do
-  if zip_weather.error?
-    flash[:error] = zip_weather.error
-    redirect "/"
-  else
-    erb :weather
-  end
+get "/lookup" do
+  check_weather
+  erb :weather
 end
