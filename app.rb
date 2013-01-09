@@ -89,7 +89,7 @@ get "/" do
   erb :index
 end
 
-get "/weather" do
+get "/lookup" do
   if zip_weather.error?
     flash[:error] = zip_weather.error
     redirect "/"
