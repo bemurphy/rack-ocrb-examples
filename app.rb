@@ -1,6 +1,7 @@
 require "restclient"
 require "json"
-require "sinatra"
+require "cuba"
+require "cuba/render"
 require "rack/flash"
 
 BadWeather = Class.new(RuntimeError)
@@ -41,6 +42,10 @@ class ZipWeather
     @error
   end
 
+  def valid?
+    ! error?
+  end
+
   def error?
     !! error
   end
@@ -75,38 +80,44 @@ class ZipWeather
   end
 end
 
-enable :sessions
-use Rack::Flash
-set :weather_api_key, ENV.fetch("WEATHER_API_KEY")
-set :raise_errors, false
-set :show_exceptions, false
+Cuba.use Rack::Session::Cookie
+Cuba.use Rack::Flash
 
-error BadWeather do
-  flash[:error] = env['sinatra.error'].to_s
-  redirect to("/")
-end
+Cuba.settings[:weather_api_key] = ENV.fetch("WEATHER_API_KEY")
 
-helpers do
-  include Rack::Utils
-  alias_method :h, :escape_html
+Cuba.plugin Rack::Utils
+Cuba.plugin Cuba::Render
+
+Cuba.define do
+  def h(*args)
+    escape_html(*args)
+  end
+
+  def flash
+    env['x-rack.flash']
+  end
 
   def zip_weather
-    @zip_weather ||= ZipWeather.new params[:zipcode], settings.weather_api_key
+    @zip_weather ||= ZipWeather.new req.params['zipcode'], settings[:weather_api_key]
   end
 
-  def check_weather
-    if zip_weather.error?
-      raise BadWeather, zip_weather.error
+  on get, "lookup" do
+    on param("zipcode"), zip_weather.valid? do
+      res.write view("weather")
     end
-    zip_weather
+
+    on param("zipcode"), zip_weather.error? do
+      flash[:error] = zip_weather.error
+      res.redirect "/"
+    end
+
+    on default do
+      flash[:error] = "You must provide a zipcode"
+      res.redirect "/"
+    end
   end
-end
 
-get "/" do
-  erb :index
-end
-
-get "/lookup" do
-  check_weather
-  erb :weather
+  on default do
+    res.write view("index")
+  end
 end
